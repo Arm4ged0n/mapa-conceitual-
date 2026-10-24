@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<!-- Correção para travar o zoom no iOS e manter o menu fixo -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Mapa Mental · Estilo Obsidian</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#07070d;--panel:rgba(24,24,37,.92);--bd:rgba(255,255,255,.1);--tx:#cdd6f4;--mut:#8b90a8;--ac:#cba6f7;--link:#6c7086;--lbl:#e6e9ff;--inp:#11111b;--btn:#313244;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f4f4fa;--panel:rgba(255,255,255,.94);--bd:rgba(0,0,0,.12);--tx:#2a2b3d;--mut:#6c6f85;--ac:#7c4dcc;--link:#9ca0b0;--lbl:#1e1e2e;--inp:#fff;--btn:#e6e6f0}}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--bd);flex:none;overflow-x:auto;backdrop-filter:blur(10px); z-index: 10; position: fixed; top: 0; left: 0; right: 0;}
+#tabs{display:flex;gap:4px;flex:none}
+.tab{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:13px;color:var(--mut);cursor:pointer;white-space:nowrap;border:1px solid transparent}
+.tab.on{color:var(--tx);background:var(--btn);border-color:var(--bd)}
+.tab span{outline:none}
+.tab b{font-weight:400;opacity:.5;padding:0 2px}.tab b:hover{opacity:1;color:#f38ba8}
+button,input,textarea{font:inherit;color:inherit}
+.btn{background:var(--btn);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--ac)}.btn.on{background:var(--ac);color:#11111b;border-color:var(--ac)}
+.sp{flex:1}
+#q{background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px;width:150px;min-width:110px}
+#q:focus,.f:focus{outline:none;border-color:var(--ac)}
+#stage{flex:1;position:relative;overflow:hidden;background-image:radial-gradient(circle,var(--bd) 1px,transparent 1px);background-size:26px 26px; margin-top: 45px;}
+svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.nd{cursor:pointer}
+.nd rect{fill:var(--inp);stroke:currentColor;stroke-width:1.5;filter:drop-shadow(0 0 6px currentColor);transition:opacity .2s}
+.nd text{fill:var(--lbl);font-size:13px;font-weight:500;pointer-events:none}
+.nd.sel rect{stroke:var(--lbl);stroke-width:3}
+.nd.src rect{stroke:#fab387;stroke-width:3.5px}
+.nd.match rect{stroke:#f9e2af;stroke-width:3}
+.nd.pin rect{stroke-dasharray:4 3}
+.nd.dim{opacity:.14}
+.lk .vis{stroke:var(--link);stroke-width:1.3;opacity:.7;transition:opacity .2s}
+.lk .hit{stroke:transparent;stroke-width:14;cursor:pointer}
+.lk.on .vis{stroke:var(--ac);opacity:1;stroke-width:2}
+.lk.sl .vis{stroke:#f38ba8;stroke-width:3;opacity:1}
+.lk.dim{opacity:.08}
+#panel{position:absolute;top:10px;right:10px;width:290px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px;display:none;flex-direction:column;gap:10px;backdrop-filter:blur(12px);z-index:5}
+#panel.open{display:flex}
+label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.f{width:100%;box-sizing:border-box;background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:8px;font-size:14px}
+textarea.f{min-height:110px;resize:vertical}
+#sw{display:flex;gap:7px;flex-wrap:wrap}
+#sw i{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
+#sw i.on{border-color:var(--lbl)}
+.row{display:flex;gap:8px;align-items:center}
+.danger{color:#f38ba8}
+#info{position:absolute;left:10px;bottom:10px;font-size:11px;color:var(--mut);pointer-events:none;max-width:70%;line-height:1.5}
+#cfg{position:absolute;top:10px;left:10px;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:12px;display:none;flex-direction:column;gap:8px;z-index:5;width:210px}
+#cfg.open{display:flex}
+#toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:var(--btn);border:1px solid var(--bd);padding:8px 14px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9;white-space:nowrap}
+#toast.show{opacity:1}
+#dlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+#dlg.open{display:flex}
+#dlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(12px)}
+@media(max-width:640px){#panel{top:auto;right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0;max-height:55%}#info{display:none} input, textarea, .f { font-size: 16px !important; } }
+
+/* Estilos para a janela de Login Local e Etiqueta de Usuário */
+#loginDlg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px;backdrop-filter:blur(5px)}
+#loginDlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:24px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:15px;text-align:center;box-shadow: 0 10px 40px rgba(0,0,0,0.5);}
+#userTag{background:var(--ac);color:#11111b;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;display:none;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div id="tabs"></div>
+    <button class="btn" id="addMap" title="Novo mapa">＋ Mapa</button>
+    <span class="sp"></span>
+    <input id="q" type="search" placeholder="Buscar (Ctrl+K)">
+    <button class="btn" id="bAdd" title="Nova nota (filha da selecionada)">＋ Nota</button>
+    <button class="btn" id="bConn" title="Conectar duas notas">⇄ Conectar</button>
+    <button class="btn" id="bFit" title="Enquadrar tudo (F)">⤢</button>
+    <button class="btn" id="bUndo" title="Desfazer (Ctrl+Z)">↶</button>
+    <button class="btn" id="bRedo" title="Refazer (Ctrl+Shift+Z)">↷</button>
+    <button class="btn" id="bCfg" title="Física do grafo">⚙</button>
+    <button class="btn" id="bData" title="Exportar / importar">⇅ Dados</button>
+    <span id="userTag" title="Usuário logado"></span>
+  </header>
+  <div id="stage">
+    <svg id="svg"></svg>
+    <div id="cfg">
+      <label>Repulsão <span id="vRep"></span></label><input type="range" id="rRep" min="40" max="700">
+      <label>Distância dos links <span id="vDist"></span></label><input type="range" id="rDist" min="30" max="260">
+    </div>
+    <aside id="panel">
+      <div class="row"><b style="flex:1">Editar nota</b><button class="btn" id="pClose">✕</button></div>
+      <div><label>Título</label><input class="f" id="fTitle"></div>
+      <div><label>Detalhes</label><textarea class="f" id="fDesc" placeholder="Anotações…"></textarea></div>
+      <div><label>Tags (separadas por vírgula)</label><input class="f" id="fTags" placeholder="ex.: vendas, ideia"></div>
+      <div><label>Cor</label><div id="sw"></div></div>
+      <div class="row"><label style="flex:1;text-transform:none;font-size:13px"><input type="checkbox" id="fPin"> Fixar posição</label></div>
+      <div class="row"><button class="btn" id="pChild" style="flex:1">＋ Filha</button><button class="btn danger" id="pDel" style="flex:1">Excluir</button></div>
+    </aside>
+    <div id="info"></div>
+    <div id="toast"></div>
+  </div>
+</div>
+<div id="dlg"><div>
+  <b>Exportar / importar mapas (JSON)</b>
+  <textarea class="f" id="dText" spellcheck="false" style="height: 200px;"></textarea>
+  <div class="row"><button class="btn" id="dCopy">Copiar</button><button class="btn" id="dImp">Importar (substitui tudo)</button><span class="sp"></span><button class="btn" id="dClose">Fechar</button></div>
+</div></div>
+
+<!-- Tela de Identificação -->
+<div id="loginDlg">
+  <div>
+    <h3 style="margin: 0; color: var(--tx)">Sessão do Mapa</h3>
+    <p style="font-size:13px;color:var(--mut);margin:0">Insira seu nome para editar os registros.</p>
+    <input type="text" id="userNameInp" class="f" placeholder="Seu nome..." style="text-align:center;">
+    <button id="btnEnter" class="btn on" style="width:100%;padding:10px;font-size:14px;">Entrar no Espaço</button>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const COLORS=['#89b4fa','#cba6f7','#f38ba8','#fab387','#f9e2af','#a6e3a1','#94e2d5'];
+const KEY='mindmap-obsidian-v2';
+const uid=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let S,hist=[],hi=-1,sel=null,selLink=null,hover=null,connectMode=false,connectFrom=null,q='',deg={},W=800,H=600,moved=false,nodeSel,linkSel,saveT;
+let myName = ''; 
+
+/* ---------- dados ---------- */
+function seed(){
+  const it=[['Inteligência Artificial','O campo principal.',1,-1],['Machine Learning','Aprendizado a partir de dados.',0,0],['Redes Neurais','Inspiradas no cérebro biológico.',0,1],['Deep Learning','Redes neurais profundas.',0,2],['Visão Computacional','Imagens e vídeos.',5,0],['Linguagem Natural','Compreensão de texto (NLP).',3,0],['LLMs','Modelos de linguagem grandes.',3,5],['Robótica','Agentes físicos autônomos.',4,0],['Ética na IA','Viés, segurança e implicações morais.',2,0]];
+  return {id:'m1',name:'Inteligência Artificial',
+    nodes:it.map((x,i)=>({id:'n'+i,title:x[0],desc:x[1],color:COLORS[x[2]],tags:[],pin:false})),
+    links:it.filter(x=>x[3]>=0).map((x,i)=>({s:'n'+x[3],t:'n'+(it.indexOf(x))}))};
+}
+function load(){
+  try{const o=JSON.parse(localStorage.getItem(KEY));if(valid(o))return o;}catch(e){}
+  return {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
+}
+function valid(o){return o&&Array.isArray(o.maps)&&o.maps.length&&o.maps.every(m=>m.id&&Array.isArray(m.nodes)&&Array.isArray(m.links));}
+function ser(){
+  return {active:S.active,cfg:S.cfg,maps:S.maps.map(m=>({id:m.id,name:m.name,
+    nodes:m.nodes.map(n=>({id:n.id,title:n.title,desc:n.desc,color:n.color,tags:n.tags||[],pin:!!n.pin,x:n.x!=null?Math.round(n.x):undefined,y:n.y!=null?Math.round(n.y):undefined})),
+    links:m.links.map(l=>({s:l.s,t:l.t}))}))};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(ser()));}catch(e){}}
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(save,400);}
+function commit(){save();hist=hist.slice(0,hi+1);hist.push(JSON.stringify(ser()));if(hist.length>60)hist.shift();hi=hist.length-1;}
+function apply(str){S=JSON.parse(str);S.cfg=S.cfg||{rep:240,dist:90};fixPins();sel=null;selLink=null;closePanel();renderTabs();render();save();}
+function undo(){if(hi>0){hi--;apply(hist[hi]);toast('Desfeito');}}
+function redo(){if(hi<hist.length-1){hi++;apply(hist[hi]);toast('Refeito');}}
+function fixPins(){S.maps.forEach(m=>m.nodes.forEach(pinApply));}
+function pinApply(d){if(d.pin&&d.x!=null){d.fx=d.x;d.fy=d.y;}else{d.fx=null;d.fy=null;}}
+const cur=()=>S.maps.find(m=>m.id===S.active);
+const nodeById=id=>cur().nodes.find(n=>n.id===id);
+
+/* ---------- D3 ---------- */
+const svg=d3.select('#svg');
+const root=svg.append('g'),gl=root.append('g'),gn=root.append('g');
+const zoom=d3.zoom().scaleExtent([.1,5]).on('zoom',e=>root.attr('transform',e.transform));
+svg.call(zoom).on('dblclick.zoom',null);
+const sim=d3.forceSimulation()
+  .force('link',d3.forceLink().id(d=>d.id))
+  .force('charge',d3.forceManyBody().distanceMax(700))
+  .force('x',d3.forceX().strength(.05)).force('y',d3.forceY().strength(.05))
+  .force('collide',d3.forceCollide().radius(d=>nw(d)/2+10))
+  .on('tick',tick);
+const NH=32,nw=d=>Math.max(70,label(d).length*7.2+28);
+function sizeRects(){nodeSel.select('rect').attr('width',nw).attr('height',NH).attr('x',d=>-nw(d)/2).attr('y',-NH/2).attr('rx',8);}
+const label=d=>{const t=d.title||'Sem título';return t.length>24?t.slice(0,22)+'…':t;};
+function forces(){sim.force('charge').strength(-S.cfg.rep);sim.force('link').distance(S.cfg.dist);}
+function resize(){const r=$('#stage').getBoundingClientRect();W=r.width;H=r.height;sim.force('x').x(W/2);sim.force('y').y(H/2);}
+const drag=d3.drag()
+  .on('start',(e,d)=>{moved=false;if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;})
+  .on('drag',(e,d)=>{moved=true;d.fx=e.x;d.fy=e.y;})
+  .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);pinApply(d);if(moved)commit();});
+
+function render(){
+  const m=cur();deg={};
+  m.links.forEach(l=>{deg[l.s]=(deg[l.s]||0)+1;deg[l.t]=(deg[l.t]||0)+1;});
+  const L=m.links.map(l=>({source:l.s,target:l.t,s:l.s,t:l.t}));
+  linkSel=gl.selectAll('g.lk').data(L,d=>d.s+'>'+d.t).join(e=>{
+    const g=e.append('g').attr('class','lk');
+    g.append('line').attr('class','vis');
+    g.append('line').attr('class','hit').on('click',(ev,d)=>{ev.stopPropagation();selLink=d.s+'>'+d.t;sel=null;closePanel();style();toast('Link selecionado — Delete para remover');});
+    return g;});
+  nodeSel=gn.selectAll('g.nd').data(m.nodes,d=>d.id).join(e=>{
+    const g=e.append('g').attr('class','nd').call(drag).on('click',nodeClick)
+      .on('dblclick',(ev,d)=>{ev.stopPropagation();d.pin=!d.pin;pinApply(d);commit();style();toast(d.pin?'Posição fixada':'Posição liberada');})
+      .on('mouseenter',(ev,d)=>{hover=d.id;style();}).on('mouseleave',()=>{hover=null;style();});
+    g.append('rect');g.append('text').attr('text-anchor','middle').attr('dy','.35em');
+    return g;});
+  nodeSel.select('rect').style('color',d=>d.color);
+  nodeSel.select('text').text(label);sizeRects();
+  sim.nodes(m.nodes);sim.force('link').links(L);forces();
+  sim.alpha(.8).restart();style();
+  $('#info').innerHTML=m.nodes.length+' notas · '+m.links.length+' conexões<br>Duplo clique no fundo: nova nota · Shift+clique: conectar · Duplo clique na nota: fixar · Tab: filha';
+}
+function tick(){
+  linkSel.selectAll('line').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
+}
+function style(){
+  if(!nodeSel)return;
+  const m=cur(),nb=new Set(),ql=q.toLowerCase();
+  if(hover){nb.add(hover);m.links.forEach(l=>{if(l.s===hover)nb.add(l.t);if(l.t===hover)nb.add(l.s);});}
+  const hit=n=>(n.title+' '+n.desc+' '+(n.tags||[]).join(' ')).toLowerCase().includes(ql);
+  nodeSel.classed('sel',d=>d.id===sel).classed('src',d=>d.id===connectFrom).classed('pin',d=>d.pin)
+    .classed('match',d=>!!ql&&hit(d)).classed('dim',d=>ql?!hit(d):(!!hover&&!nb.has(d.id)));
+  linkSel.classed('on',d=>!!(sel&&(d.s===sel||d.t===sel))).classed('sl',d=>d.s+'>'+d.t===selLink)
+    .classed('dim',d=>!!hover&&!(d.s===hover||d.t===hover));
+}
+
+/* ---------- interações ---------- */
+function nodeClick(ev,d){
+  ev.stopPropagation();selLink=null;
+  if(connectMode){
+    if(!connectFrom){connectFrom=d.id;toast('Agora clique na nota de destino');}
+    else{if(connectFrom!==d.id)toggleLink(connectFrom,d.id);connectFrom=null;}
+    style();return;
+  }
+  if(ev.shiftKey&&sel&&sel!==d.id){toggleLink(sel,d.id);}
+  select(d.id);
+}
+function toggleLink(a,b){
+  const m=cur(),i=m.links.findIndex(l=>(l.s===a&&l.t===b)||(l.s===b&&l.t===a));
+  if(i>=0){m.links.splice(i,1);toast('Conexão removida');}else{m.links.push({s:a,t:b});toast('Conectadas');}
+  commit();render();
+}
+function select(id){sel=id;selLink=null;openPanel();style();}
+function addNode(x,y,parent){
+  const m=cur(),n={id:uid(),title:'Nova ideia',desc:'',color:parent?parent.color:COLORS[0],tags:[],pin:false,x,y};
+  m.nodes.push(n);if(parent)m.links.push({s:parent.id,t:n.id});
+  commit();render();select(n.id);
+}
+function addChild(){const p=sel&&nodeById(sel);if(p)addNode(p.x+(Math.random()*60-30),p.y+60,p);else addNode(W/2,H/2,null);}
+function delNode(){
+  if(!sel)return;const m=cur(),id=sel;
+  m.nodes=m.nodes.filter(n=>n.id!==id);m.links=m.links.filter(l=>l.s!==id&&l.t!==id);
+  sel=null;closePanel();commit();render();toast('Nota excluída — Ctrl+Z desfaz');
+}
+function delLink(){
+  if(!selLink)return;const m=cur();
+  m.links=m.links.filter(l=>l.s+'>'+l.t!==selLink);selLink=null;commit();render();toast('Link removido');
+}
+svg.on('click',e=>{if(e.target===svg.node()){sel=null;selLink=null;connectFrom=null;closePanel();style();}});
+svg.on('dblclick',e=>{
+  if(e.target!==svg.node())return;
+  const p=d3.zoomTransform(svg.node()).invert(d3.pointer(e,svg.node()));
+  addNode(p[0],p[1],sel?nodeById(sel):null);
+});
+function go(n,k){
+  const t=d3.zoomIdentity.translate(W/2,H/2).scale(k||1.4).translate(-n.x,-n.y);
+  svg.transition().duration(500).call(zoom.transform,t);
+}
+function fit(){
+  const ns=cur().nodes.filter(n=>n.x!=null);if(!ns.length)return;
+  const x0=d3.min(ns,n=>n.x),x1=d3.max(ns,n=>n.x),y0=d3.min(ns,n=>n.y),y1=d3.max(ns,n=>n.y);
+  const k=Math.min(2,.85/Math.max((x1-x0)/W,(y1-y0)/H,.05));
+  const t=d3.zoomIdentity.translate(W/2,H/2).scale(k).translate(-(x0+x1)/2,-(y0+y1)/2);
+  svg.transition().duration(600).call(zoom.transform,t);
+}
+
+/* ---------- painel ---------- */
+const sw=$('#sw');
+COLORS.forEach(c=>{const i=document.createElement('i');i.style.background=c;i.dataset.c=c;i.onclick=()=>{const n=nodeById(sel);if(!n)return;n.color=c;commit();render();openPanel();};sw.appendChild(i);});
+function openPanel(){
+  const n=sel&&nodeById(sel);if(!n)return;
+  $('#fTitle').value=n.title;$('#fDesc').value=n.desc||'';$('#fTags').value=(n.tags||[]).join(', ');$('#fPin').checked=!!n.pin;
+  sw.querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===n.color));
+  $('#panel').classList.add('open');
+}
+function closePanel(){$('#panel').classList.remove('open');}
+$('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();saveSoon();};
+$('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;saveSoon();}};
+$('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);saveSoon();}};
+['#fTitle','#fDesc','#fTags'].forEach(s=>$(s).onchange=commit);
+$('#fPin').onchange=e=>{const n=nodeById(sel);if(n){n.pin=e.target.checked;pinApply(n);commit();style();}};
+$('#pClose').onclick=()=>{sel=null;closePanel();style();};
+$('#pDel').onclick=delNode;$('#pChild').onclick=addChild;
+
+/* ---------- abas ---------- */
+function renderTabs(){
+  const t=$('#tabs');t.innerHTML='';
+  S.maps.forEach(m=>{
+    const d=document.createElement('div');d.className='tab'+(m.id===S.active?' on':'');
+    const s=document.createElement('span');s.textContent=m.name;
+    d.onclick=()=>{if(S.active!==m.id){S.active=m.id;sel=null;selLink=null;closePanel();renderTabs();render();save();setTimeout(fit,700);}};
+    s.ondblclick=e=>{e.stopPropagation();s.contentEditable='true';s.focus();getSelection().selectAllChildren(s);};
+    s.onblur=()=>{if(s.isContentEditable){s.contentEditable='false';m.name=s.textContent.trim()||'Mapa';s.textContent=m.name;commit();}};
+    s.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();s.blur();}};
+    const x=document.createElement('b');x.textContent='×';x.title='Excluir mapa';
+    x.onclick=e=>{e.stopPropagation();delMap(m.id);};
+    d.append(s,x);t.appendChild(d);
+  });
+}
+function newMap(){
+  const id='m'+Date.now();
+  S.maps.push({id,name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:COLORS[1],tags:[],pin:false}],links:[]});
+  S.active=id;sel=null;closePanel();commit();renderTabs();render();setTimeout(fit,500);
+}
+function delMap(id){
+  S.maps=S.maps.filter(m=>m.id!==id);
+  if(!S.maps.length){S.maps.push({id:'m'+Date.now(),name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:COLORS[1],tags:[],pin:false}],links:[]});}
+  if(!S.maps.find(m=>m.id===S.active))S.active=S.maps[0].id;
+  sel=null;closePanel();commit();renderTabs();render();toast('Mapa excluído — Ctrl+Z desfaz');
+}
+$('#addMap').onclick=newMap;
+
+/* ---------- barra de ferramentas ---------- */
+$('#bAdd').onclick=addChild;
+$('#bConn').onclick=e=>{connectMode=!connectMode;connectFrom=null;e.currentTarget.classList.toggle('on',connectMode);toast(connectMode?'Clique na origem e depois no destino':'Modo conectar desligado');style();};
+$('#bFit').onclick=fit;$('#bUndo').onclick=undo;$('#bRedo').onclick=redo;
+$('#bCfg').onclick=()=>$('#cfg').classList.toggle('open');
+function syncCfg(){$('#rRep').value=S.cfg.rep;$('#rDist').value=S.cfg.dist;$('#vRep').textContent=S.cfg.rep;$('#vDist').textContent=S.cfg.dist;}
+$('#rRep').oninput=e=>{S.cfg.rep=+e.target.value;syncCfg();forces();sim.alpha(.5).restart();saveSoon();};
+$('#rDist').oninput=e=>{S.cfg.dist=+e.target.value;syncCfg();forces();sim.alpha(.5).restart();saveSoon();};
+$('#q').oninput=e=>{q=e.target.value.trim();style();};
+$('#q').onkeydown=e=>{
+  if(e.key==='Enter'&&q){const ql=q.toLowerCase(),n=cur().nodes.find(n=>(n.title+' '+n.desc+' '+(n.tags||[]).join(' ')).toLowerCase().includes(ql));if(n){go(n);select(n.id);}else toast('Nada encontrado');}
+  if(e.key==='Escape'){e.target.value='';q='';style();e.target.blur();}
+};
+
+/* ---------- exportar / importar ---------- */
+$('#bData').onclick=()=>{$('#dText').value=JSON.stringify(ser(),null,1);$('#dlg').classList.add('open');};
+$('#dClose').onclick=()=>$('#dlg').classList.remove('open');
+$('#dCopy').onclick=async()=>{
+  const t=$('#dText');t.select();
+  try{await navigator.clipboard.writeText(t.value);toast('Copiado');}catch(e){try{document.execCommand('copy');toast('Copiado');}catch(_){toast('Selecione e copie manualmente');}}
+};
+$('#dImp').onclick=()=>{
+  try{const o=JSON.parse($('#dText').value);if(!valid(o))throw 0;
+    S=o;S.cfg=S.cfg||{rep:240,dist:90};if(!S.maps.find(m=>m.id===S.active))S.active=S.maps[0].id;
+    fixPins();sel=null;closePanel();commit();syncCfg();renderTabs();render();setTimeout(fit,700);$('#dlg').classList.remove('open');toast('Importado');
+  }catch(e){toast('JSON inválido');}
+};
+
+/* ---------- teclado ---------- */
+addEventListener('keydown',e=>{
+  const typing=/INPUT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable;
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key.toLowerCase()==='k'){e.preventDefault();$('#q').focus();return;}
+  if(typing){if(e.key==='Escape')e.target.blur();return;}
+  if(mod&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}
+  else if(mod&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}
+  else if(e.key==='Tab'){e.preventDefault();addChild();}
+  else if(e.key==='Delete'||e.key==='Backspace'){selLink?delLink():delNode();}
+  else if(e.key==='Enter'&&sel){$('#fTitle').focus();}
+  else if(e.key==='Escape'){sel=null;selLink=null;connectFrom=null;closePanel();style();}
+  else if(e.key.toLowerCase()==='f'){fit();}
+  else if(e.key==='/'){e.preventDefault();$('#q').focus();}
+});
+addEventListener('resize',()=>{resize();sim.alpha(.2).restart();});
+
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ---------- Início e Login Local ---------- */
+$('#userNameInp').addEventListener('keydown', e => { if(e.key === 'Enter') $('#btnEnter').click(); });
+
+$('#btnEnter').onclick = () => {
+    const name = $('#userNameInp').value.trim();
+    if (!name) return toast('Por favor, digite seu nome!');
+    
+    myName = name;
+    
+    // Libera a tela IMEDIATAMENTE e mostra o nome
+    $('#loginDlg').style.display = 'none';
+    $('#userTag').style.display = 'block';
+    $('#userTag').textContent = '👤 ' + myName;
+    
+    // Carrega o mapa salvo localmente no celular/computador
+    S = load();
+    S.cfg = S.cfg || {rep:240, dist:90};
+    fixPins();
+    hist=[JSON.stringify(ser())];hi=0;
+    
+    resize();
+    syncCfg();
+    renderTabs();
+    render();
+    setTimeout(fit,900);
+    toast('Bem-vindo(a), ' + myName + '!');
+};
+</script>
+</body>
+</html>
