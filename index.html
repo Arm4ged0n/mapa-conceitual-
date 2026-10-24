@@ -2,16 +2,19 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<!-- Correção para travar o zoom no iOS e manter o menu fixo -->
+<!-- Previne o zoom forçado do iPhone travando a escala -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Mapa Mental · Estilo Obsidian</title>
+<title>Mapa Mental · Colaborativo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<!-- Biblioteca do Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{color-scheme:dark;--bg:#07070d;--panel:rgba(24,24,37,.92);--bd:rgba(255,255,255,.1);--tx:#cdd6f4;--mut:#8b90a8;--ac:#cba6f7;--link:#6c7086;--lbl:#e6e9ff;--inp:#11111b;--btn:#313244;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f4f4fa;--panel:rgba(255,255,255,.94);--bd:rgba(0,0,0,.12);--tx:#2a2b3d;--mut:#6c6f85;--ac:#7c4dcc;--link:#9ca0b0;--lbl:#1e1e2e;--inp:#fff;--btn:#e6e6f0}}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;}
+html,body{height:100dvh;margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;position:fixed;width:100%;}
 #app{display:flex;flex-direction:column;height:100%}
-header{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--bd);flex:none;overflow-x:auto;backdrop-filter:blur(10px); z-index: 10; position: fixed; top: 0; left: 0; right: 0;}
+/* Header fixado no topo */
+header{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--bd);flex:none;overflow-x:auto;backdrop-filter:blur(10px); position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: 35px;}
 #tabs{display:flex;gap:4px;flex:none}
 .tab{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:13px;color:var(--mut);cursor:pointer;white-space:nowrap;border:1px solid transparent}
 .tab.on{color:var(--tx);background:var(--btn);border-color:var(--bd)}
@@ -23,7 +26,10 @@ button,input,textarea{font:inherit;color:inherit}
 .sp{flex:1}
 #q{background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;font-size:13px;width:150px;min-width:110px}
 #q:focus,.f:focus{outline:none;border-color:var(--ac)}
-#stage{flex:1;position:relative;overflow:hidden;background-image:radial-gradient(circle,var(--bd) 1px,transparent 1px);background-size:26px 26px; margin-top: 45px;}
+/* Proteção contra Zoom do Safari: Força fonte 16px nos inputs */
+input, textarea, .f { font-size: 16px !important; }
+
+#stage{flex:1;position:relative;overflow:hidden;background-image:radial-gradient(circle,var(--bd) 1px,transparent 1px);background-size:26px 26px; margin-top: 48px;}
 svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
 .nd{cursor:pointer}
 .nd rect{fill:var(--inp);stroke:currentColor;stroke-width:1.5;filter:drop-shadow(0 0 6px currentColor);transition:opacity .2s}
@@ -38,10 +44,15 @@ svg{width:100%;height:100%;display:block;touch-action:none;user-select:none;-web
 .lk.on .vis{stroke:var(--ac);opacity:1;stroke-width:2}
 .lk.sl .vis{stroke:#f38ba8;stroke-width:3;opacity:1}
 .lk.dim{opacity:.08}
-#panel{position:absolute;top:10px;right:10px;width:290px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px;display:none;flex-direction:column;gap:10px;backdrop-filter:blur(12px);z-index:5}
+
+/* Novos botões flutuantes */
+#bAddFloating { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 55px; height: 55px; border-radius: 50%; font-size: 28px; z-index: 5; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;}
+#bEditTop { position: absolute; top: 10px; right: 15px; z-index: 5; background: var(--ac); color: #11111b; font-weight: bold; padding: 10px 20px; border-radius: 8px; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: none; cursor: pointer; }
+
+#panel{position:absolute;top:55px;right:15px;width:290px;max-height:calc(100% - 70px);overflow:auto;background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px;display:none;flex-direction:column;gap:10px;backdrop-filter:blur(12px);z-index:15}
 #panel.open{display:flex}
 label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
-.f{width:100%;box-sizing:border-box;background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:8px;font-size:14px}
+.f{width:100%;box-sizing:border-box;background:var(--inp);border:1px solid var(--bd);border-radius:8px;padding:8px;}
 textarea.f{min-height:110px;resize:vertical}
 #sw{display:flex;gap:7px;flex-wrap:wrap}
 #sw i{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent}
@@ -53,15 +64,22 @@ textarea.f{min-height:110px;resize:vertical}
 #cfg.open{display:flex}
 #toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:var(--btn);border:1px solid var(--bd);padding:8px 14px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9;white-space:nowrap}
 #toast.show{opacity:1}
+
+/* Telas modais */
 #dlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
 #dlg.open{display:flex}
 #dlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:16px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px;backdrop-filter:blur(12px)}
-@media(max-width:640px){#panel{top:auto;right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0;max-height:55%}#info{display:none} input, textarea, .f { font-size: 16px !important; } }
+#dlg textarea{height:260px;font-family:ui-monospace,monospace;font-size:12px}
 
-/* Estilos para a janela de Login Local e Etiqueta de Usuário */
 #loginDlg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px;backdrop-filter:blur(5px)}
 #loginDlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:24px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:15px;text-align:center;box-shadow: 0 10px 40px rgba(0,0,0,0.5);}
 #userTag{background:var(--ac);color:#11111b;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;display:none;white-space:nowrap;}
+
+@media(max-width:640px){
+  #panel{top:auto;right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0;max-height:55%}
+  #info{display:none} 
+  #bAddFloating { left: 10px; width: 50px; height: 50px; font-size: 24px; }
+}
 </style>
 </head>
 <body>
@@ -71,8 +89,6 @@ textarea.f{min-height:110px;resize:vertical}
     <button class="btn" id="addMap" title="Novo mapa">＋ Mapa</button>
     <span class="sp"></span>
     <input id="q" type="search" placeholder="Buscar (Ctrl+K)">
-    <button class="btn" id="bAdd" title="Nova nota (filha da selecionada)">＋ Nota</button>
-    <button class="btn" id="bConn" title="Conectar duas notas">⇄ Conectar</button>
     <button class="btn" id="bFit" title="Enquadrar tudo (F)">⤢</button>
     <button class="btn" id="bUndo" title="Desfazer (Ctrl+Z)">↶</button>
     <button class="btn" id="bRedo" title="Refazer (Ctrl+Shift+Z)">↷</button>
@@ -80,12 +96,17 @@ textarea.f{min-height:110px;resize:vertical}
     <button class="btn" id="bData" title="Exportar / importar">⇅ Dados</button>
     <span id="userTag" title="Usuário logado"></span>
   </header>
+  
   <div id="stage">
     <svg id="svg"></svg>
+    <button class="btn on" id="bAddFloating" title="Nova nota (solta)">＋</button>
+    <button id="bEditTop">✏️ EDITAR NOTA</button>
+
     <div id="cfg">
       <label>Repulsão <span id="vRep"></span></label><input type="range" id="rRep" min="40" max="700">
       <label>Distância dos links <span id="vDist"></span></label><input type="range" id="rDist" min="30" max="260">
     </div>
+    
     <aside id="panel">
       <div class="row"><b style="flex:1">Editar nota</b><button class="btn" id="pClose">✕</button></div>
       <div><label>Título</label><input class="f" id="fTitle"></div>
@@ -99,51 +120,73 @@ textarea.f{min-height:110px;resize:vertical}
     <div id="toast"></div>
   </div>
 </div>
+
 <div id="dlg"><div>
   <b>Exportar / importar mapas (JSON)</b>
-  <textarea class="f" id="dText" spellcheck="false" style="height: 200px;"></textarea>
+  <textarea class="f" id="dText" spellcheck="false"></textarea>
   <div class="row"><button class="btn" id="dCopy">Copiar</button><button class="btn" id="dImp">Importar (substitui tudo)</button><span class="sp"></span><button class="btn" id="dClose">Fechar</button></div>
 </div></div>
 
-<!-- Tela de Identificação -->
+<!-- Tela de Login -->
 <div id="loginDlg">
   <div>
-    <h3 style="margin: 0; color: var(--tx)">Sessão do Mapa</h3>
-    <p style="font-size:13px;color:var(--mut);margin:0">Insira seu nome para editar os registros.</p>
+    <h3 style="margin: 0; color: var(--tx)">Sessão Colaborativa</h3>
+    <p style="font-size:13px;color:var(--mut);margin:0">Insira seu nome para editar o mapa com sua equipe em tempo real.</p>
     <input type="text" id="userNameInp" class="f" placeholder="Seu nome..." style="text-align:center;">
     <button id="btnEnter" class="btn on" style="width:100%;padding:10px;font-size:14px;">Entrar no Espaço</button>
   </div>
 </div>
 
 <script>
+// ==========================================
+// CONFIGURAÇÕES DO SUPABASE 
+// ==========================================
+const SUPABASE_URL = 'supabase link --project-ref qxuewninnzfavdibnrmd';
+const SUPABASE_KEY = 'sb_publishable_EIRG9yUW-t8qhe2jufAsiA_90wKMR71';
+
+// Conexão protegida (se a url estiver errada, o código não morre)
+let supa = null;
+try {
+  if (SUPABASE_URL.includes('http')) {
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+} catch(e) { console.warn("Supabase não conectado."); }
+// ==========================================
+
 const $=s=>document.querySelector(s);
 const COLORS=['#89b4fa','#cba6f7','#f38ba8','#fab387','#f9e2af','#a6e3a1','#94e2d5'];
-const KEY='mindmap-obsidian-v2';
+const MAIN_COLORS = ['#f9e2af', '#fab387', '#f38ba8']; 
 const uid=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-let S,hist=[],hi=-1,sel=null,selLink=null,hover=null,connectMode=false,connectFrom=null,q='',deg={},W=800,H=600,moved=false,nodeSel,linkSel,saveT;
-let myName = ''; 
 
-/* ---------- dados ---------- */
+let S,hist=[],hi=-1,sel=null,selLink=null,hover=null,q='',deg={},W=800,H=600,moved=false,nodeSel,linkSel,saveT;
+let myName = '';
+let isRemoteUpdate = false;
+
+/* ---------- dados iniciais ---------- */
 function seed(){
   const it=[['Inteligência Artificial','O campo principal.',1,-1],['Machine Learning','Aprendizado a partir de dados.',0,0],['Redes Neurais','Inspiradas no cérebro biológico.',0,1],['Deep Learning','Redes neurais profundas.',0,2],['Visão Computacional','Imagens e vídeos.',5,0],['Linguagem Natural','Compreensão de texto (NLP).',3,0],['LLMs','Modelos de linguagem grandes.',3,5],['Robótica','Agentes físicos autônomos.',4,0],['Ética na IA','Viés, segurança e implicações morais.',2,0]];
   return {id:'m1',name:'Inteligência Artificial',
     nodes:it.map((x,i)=>({id:'n'+i,title:x[0],desc:x[1],color:COLORS[x[2]],tags:[],pin:false})),
     links:it.filter(x=>x[3]>=0).map((x,i)=>({s:'n'+x[3],t:'n'+(it.indexOf(x))}))};
 }
-function load(){
-  try{const o=JSON.parse(localStorage.getItem(KEY));if(valid(o))return o;}catch(e){}
-  return {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
-}
-function valid(o){return o&&Array.isArray(o.maps)&&o.maps.length&&o.maps.every(m=>m.id&&Array.isArray(m.nodes)&&Array.isArray(m.links));}
+
 function ser(){
   return {active:S.active,cfg:S.cfg,maps:S.maps.map(m=>({id:m.id,name:m.name,
     nodes:m.nodes.map(n=>({id:n.id,title:n.title,desc:n.desc,color:n.color,tags:n.tags||[],pin:!!n.pin,x:n.x!=null?Math.round(n.x):undefined,y:n.y!=null?Math.round(n.y):undefined})),
     links:m.links.map(l=>({s:l.s,t:l.t}))}))};
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(ser()));}catch(e){}}
-function saveSoon(){clearTimeout(saveT);saveT=setTimeout(save,400);}
-function commit(){save();hist=hist.slice(0,hi+1);hist.push(JSON.stringify(ser()));if(hist.length>60)hist.shift();hi=hist.length-1;}
-function apply(str){S=JSON.parse(str);S.cfg=S.cfg||{rep:240,dist:90};fixPins();sel=null;selLink=null;closePanel();renderTabs();render();save();}
+
+async function saveToSupabase() {
+  if (isRemoteUpdate || !supa || !S) return;
+  const data = ser();
+  try { await supa.from('mindmaps').update({ state: data }).eq('id', 'mapa-principal'); } 
+  catch(e) { console.error("Erro ao salvar:", e); }
+}
+
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(saveToSupabase,400);}
+function commit(){saveSoon();hist=hist.slice(0,hi+1);hist.push(JSON.stringify(ser()));if(hist.length>60)hist.shift();hi=hist.length-1;}
+
+function apply(str){S=JSON.parse(str);S.cfg=S.cfg||{rep:240,dist:90};fixPins();sel=null;selLink=null;closePanel();renderTabs();render();saveSoon();}
 function undo(){if(hi>0){hi--;apply(hist[hi]);toast('Desfeito');}}
 function redo(){if(hi<hist.length-1){hi++;apply(hist[hi]);toast('Refeito');}}
 function fixPins(){S.maps.forEach(m=>m.nodes.forEach(pinApply));}
@@ -151,7 +194,7 @@ function pinApply(d){if(d.pin&&d.x!=null){d.fx=d.x;d.fy=d.y;}else{d.fx=null;d.fy
 const cur=()=>S.maps.find(m=>m.id===S.active);
 const nodeById=id=>cur().nodes.find(n=>n.id===id);
 
-/* ---------- D3 ---------- */
+/* ---------- D3 Gráfico ---------- */
 const svg=d3.select('#svg');
 const root=svg.append('g'),gl=root.append('g'),gn=root.append('g');
 const zoom=d3.zoom().scaleExtent([.1,5]).on('zoom',e=>root.attr('transform',e.transform));
@@ -183,73 +226,65 @@ function render(){
     return g;});
   nodeSel=gn.selectAll('g.nd').data(m.nodes,d=>d.id).join(e=>{
     const g=e.append('g').attr('class','nd').call(drag).on('click',nodeClick)
-      .on('dblclick',(ev,d)=>{ev.stopPropagation();d.pin=!d.pin;pinApply(d);commit();style();toast(d.pin?'Posição fixada':'Posição liberada');})
-      .on('mouseenter',(ev,d)=>{hover=d.id;style();}).on('mouseleave',()=>{hover=null;style();});
+      .on('dblclick',(ev,d)=>{ev.stopPropagation();d.pin=!d.pin;pinApply(d);commit();style();toast(d.pin?'Posição fixada':'Posição liberada');});
     g.append('rect');g.append('text').attr('text-anchor','middle').attr('dy','.35em');
     return g;});
   nodeSel.select('rect').style('color',d=>d.color);
   nodeSel.select('text').text(label);sizeRects();
   sim.nodes(m.nodes);sim.force('link').links(L);forces();
   sim.alpha(.8).restart();style();
-  $('#info').innerHTML=m.nodes.length+' notas · '+m.links.length+' conexões<br>Duplo clique no fundo: nova nota · Shift+clique: conectar · Duplo clique na nota: fixar · Tab: filha';
 }
+
 function tick(){
+  if (!linkSel || !nodeSel) return; // FIX: Protege contra tick antes de renderizar
   linkSel.selectAll('line').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
   nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
 }
+
 function style(){
   if(!nodeSel)return;
-  const m=cur(),nb=new Set(),ql=q.toLowerCase();
-  if(hover){nb.add(hover);m.links.forEach(l=>{if(l.s===hover)nb.add(l.t);if(l.t===hover)nb.add(l.s);});}
+  const m=cur(),ql=q.toLowerCase();
   const hit=n=>(n.title+' '+n.desc+' '+(n.tags||[]).join(' ')).toLowerCase().includes(ql);
-  nodeSel.classed('sel',d=>d.id===sel).classed('src',d=>d.id===connectFrom).classed('pin',d=>d.pin)
-    .classed('match',d=>!!ql&&hit(d)).classed('dim',d=>ql?!hit(d):(!!hover&&!nb.has(d.id)));
-  linkSel.classed('on',d=>!!(sel&&(d.s===sel||d.t===sel))).classed('sl',d=>d.s+'>'+d.t===selLink)
-    .classed('dim',d=>!!hover&&!(d.s===hover||d.t===hover));
+  nodeSel.classed('sel',d=>d.id===sel).classed('pin',d=>d.pin).classed('match',d=>!!ql&&hit(d)).classed('dim',d=>ql?!hit(d):false);
+  linkSel.classed('on',d=>!!(sel&&(d.s===sel||d.t===sel))).classed('sl',d=>d.s+'>'+d.t===selLink);
+  
+  if(sel) $('#bEditTop').style.display = 'block';
+  else $('#bEditTop').style.display = 'none';
 }
 
-/* ---------- interações ---------- */
+/* ---------- Interações 1-Clique ---------- */
 function nodeClick(ev,d){
-  ev.stopPropagation();selLink=null;
-  if(connectMode){
-    if(!connectFrom){connectFrom=d.id;toast('Agora clique na nota de destino');}
-    else{if(connectFrom!==d.id)toggleLink(connectFrom,d.id);connectFrom=null;}
-    style();return;
+  ev.stopPropagation(); selLink=null;
+  if(sel && sel !== d.id) {
+    toggleLink(sel, d.id);
+    select(d.id); 
+  } else {
+    select(d.id);
   }
-  if(ev.shiftKey&&sel&&sel!==d.id){toggleLink(sel,d.id);}
-  select(d.id);
 }
 function toggleLink(a,b){
   const m=cur(),i=m.links.findIndex(l=>(l.s===a&&l.t===b)||(l.s===b&&l.t===a));
   if(i>=0){m.links.splice(i,1);toast('Conexão removida');}else{m.links.push({s:a,t:b});toast('Conectadas');}
   commit();render();
 }
-function select(id){sel=id;selLink=null;openPanel();style();}
+function select(id){sel=id;selLink=null;style();}
 function addNode(x,y,parent){
-  const m=cur(),n={id:uid(),title:'Nova ideia',desc:'',color:parent?parent.color:COLORS[0],tags:[],pin:false,x,y};
+  const m=cur();
+  const nodeColor = parent ? parent.color : MAIN_COLORS[Math.floor(Math.random() * MAIN_COLORS.length)];
+  const n={id:uid(),title:'Nova ideia',desc:'',color:nodeColor,tags:[],pin:false,x,y};
   m.nodes.push(n);if(parent)m.links.push({s:parent.id,t:n.id});
   commit();render();select(n.id);
 }
-function addChild(){const p=sel&&nodeById(sel);if(p)addNode(p.x+(Math.random()*60-30),p.y+60,p);else addNode(W/2,H/2,null);}
 function delNode(){
   if(!sel)return;const m=cur(),id=sel;
   m.nodes=m.nodes.filter(n=>n.id!==id);m.links=m.links.filter(l=>l.s!==id&&l.t!==id);
-  sel=null;closePanel();commit();render();toast('Nota excluída — Ctrl+Z desfaz');
+  sel=null;closePanel();commit();render();toast('Nota excluída');
 }
-function delLink(){
-  if(!selLink)return;const m=cur();
-  m.links=m.links.filter(l=>l.s+'>'+l.t!==selLink);selLink=null;commit();render();toast('Link removido');
-}
-svg.on('click',e=>{if(e.target===svg.node()){sel=null;selLink=null;connectFrom=null;closePanel();style();}});
-svg.on('dblclick',e=>{
-  if(e.target!==svg.node())return;
-  const p=d3.zoomTransform(svg.node()).invert(d3.pointer(e,svg.node()));
-  addNode(p[0],p[1],sel?nodeById(sel):null);
-});
-function go(n,k){
-  const t=d3.zoomIdentity.translate(W/2,H/2).scale(k||1.4).translate(-n.x,-n.y);
-  svg.transition().duration(500).call(zoom.transform,t);
-}
+svg.on('click',e=>{if(e.target===svg.node()){sel=null;selLink=null;closePanel();style();}});
+
+$('#bAddFloating').onclick = () => addNode(W/2, H/2, null);
+$('#bEditTop').onclick = openPanel;
+
 function fit(){
   const ns=cur().nodes.filter(n=>n.x!=null);if(!ns.length)return;
   const x0=d3.min(ns,n=>n.x),x1=d3.max(ns,n=>n.x),y0=d3.min(ns,n=>n.y),y1=d3.max(ns,n=>n.y);
@@ -258,7 +293,7 @@ function fit(){
   svg.transition().duration(600).call(zoom.transform,t);
 }
 
-/* ---------- painel ---------- */
+/* ---------- Painel Lateral ---------- */
 const sw=$('#sw');
 COLORS.forEach(c=>{const i=document.createElement('i');i.style.background=c;i.dataset.c=c;i.onclick=()=>{const n=nodeById(sel);if(!n)return;n.color=c;commit();render();openPanel();};sw.appendChild(i);});
 function openPanel(){
@@ -271,113 +306,111 @@ function closePanel(){$('#panel').classList.remove('open');}
 $('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();saveSoon();};
 $('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;saveSoon();}};
 $('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);saveSoon();}};
-['#fTitle','#fDesc','#fTags'].forEach(s=>$(s).onchange=commit);
 $('#fPin').onchange=e=>{const n=nodeById(sel);if(n){n.pin=e.target.checked;pinApply(n);commit();style();}};
-$('#pClose').onclick=()=>{sel=null;closePanel();style();};
-$('#pDel').onclick=delNode;$('#pChild').onclick=addChild;
+$('#pClose').onclick=closePanel;
+$('#pDel').onclick=delNode;
+$('#pChild').onclick=()=>{const p=sel&&nodeById(sel);if(p)addNode(p.x+(Math.random()*60-30),p.y+60,p);};
 
-/* ---------- abas ---------- */
+/* ---------- Abas ---------- */
 function renderTabs(){
   const t=$('#tabs');t.innerHTML='';
   S.maps.forEach(m=>{
     const d=document.createElement('div');d.className='tab'+(m.id===S.active?' on':'');
     const s=document.createElement('span');s.textContent=m.name;
-    d.onclick=()=>{if(S.active!==m.id){S.active=m.id;sel=null;selLink=null;closePanel();renderTabs();render();save();setTimeout(fit,700);}};
-    s.ondblclick=e=>{e.stopPropagation();s.contentEditable='true';s.focus();getSelection().selectAllChildren(s);};
-    s.onblur=()=>{if(s.isContentEditable){s.contentEditable='false';m.name=s.textContent.trim()||'Mapa';s.textContent=m.name;commit();}};
-    s.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();s.blur();}};
-    const x=document.createElement('b');x.textContent='×';x.title='Excluir mapa';
+    d.onclick=()=>{if(S.active!==m.id){S.active=m.id;sel=null;selLink=null;closePanel();renderTabs();render();saveSoon();setTimeout(fit,700);}};
+    const x=document.createElement('b');x.textContent='×';
     x.onclick=e=>{e.stopPropagation();delMap(m.id);};
     d.append(s,x);t.appendChild(d);
   });
 }
 function newMap(){
   const id='m'+Date.now();
-  S.maps.push({id,name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:COLORS[1],tags:[],pin:false}],links:[]});
+  S.maps.push({id,name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:MAIN_COLORS[0],tags:[],pin:false}],links:[]});
   S.active=id;sel=null;closePanel();commit();renderTabs();render();setTimeout(fit,500);
 }
 function delMap(id){
   S.maps=S.maps.filter(m=>m.id!==id);
-  if(!S.maps.length){S.maps.push({id:'m'+Date.now(),name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:COLORS[1],tags:[],pin:false}],links:[]});}
-  if(!S.maps.find(m=>m.id===S.active))S.active=S.maps[0].id;
-  sel=null;closePanel();commit();renderTabs();render();toast('Mapa excluído — Ctrl+Z desfaz');
+  if(!S.maps.length) S.maps.push({id:'m'+Date.now(),name:'Novo mapa',nodes:[{id:uid(),title:'Ideia central',desc:'',color:MAIN_COLORS[0],tags:[],pin:false}],links:[]});
+  if(!S.maps.find(m=>m.id===S.active)) S.active=S.maps[0].id;
+  sel=null;closePanel();commit();renderTabs();render();
 }
 $('#addMap').onclick=newMap;
 
-/* ---------- barra de ferramentas ---------- */
-$('#bAdd').onclick=addChild;
-$('#bConn').onclick=e=>{connectMode=!connectMode;connectFrom=null;e.currentTarget.classList.toggle('on',connectMode);toast(connectMode?'Clique na origem e depois no destino':'Modo conectar desligado');style();};
+/* ---------- Ferramentas e Exportação ---------- */
 $('#bFit').onclick=fit;$('#bUndo').onclick=undo;$('#bRedo').onclick=redo;
 $('#bCfg').onclick=()=>$('#cfg').classList.toggle('open');
 function syncCfg(){$('#rRep').value=S.cfg.rep;$('#rDist').value=S.cfg.dist;$('#vRep').textContent=S.cfg.rep;$('#vDist').textContent=S.cfg.dist;}
 $('#rRep').oninput=e=>{S.cfg.rep=+e.target.value;syncCfg();forces();sim.alpha(.5).restart();saveSoon();};
 $('#rDist').oninput=e=>{S.cfg.dist=+e.target.value;syncCfg();forces();sim.alpha(.5).restart();saveSoon();};
 $('#q').oninput=e=>{q=e.target.value.trim();style();};
-$('#q').onkeydown=e=>{
-  if(e.key==='Enter'&&q){const ql=q.toLowerCase(),n=cur().nodes.find(n=>(n.title+' '+n.desc+' '+(n.tags||[]).join(' ')).toLowerCase().includes(ql));if(n){go(n);select(n.id);}else toast('Nada encontrado');}
-  if(e.key==='Escape'){e.target.value='';q='';style();e.target.blur();}
-};
 
-/* ---------- exportar / importar ---------- */
 $('#bData').onclick=()=>{$('#dText').value=JSON.stringify(ser(),null,1);$('#dlg').classList.add('open');};
 $('#dClose').onclick=()=>$('#dlg').classList.remove('open');
 $('#dCopy').onclick=async()=>{
   const t=$('#dText');t.select();
-  try{await navigator.clipboard.writeText(t.value);toast('Copiado');}catch(e){try{document.execCommand('copy');toast('Copiado');}catch(_){toast('Selecione e copie manualmente');}}
+  try{await navigator.clipboard.writeText(t.value);toast('Copiado');}catch(e){document.execCommand('copy');toast('Copiado');}
 };
 $('#dImp').onclick=()=>{
-  try{const o=JSON.parse($('#dText').value);if(!valid(o))throw 0;
-    S=o;S.cfg=S.cfg||{rep:240,dist:90};if(!S.maps.find(m=>m.id===S.active))S.active=S.maps[0].id;
-    fixPins();sel=null;closePanel();commit();syncCfg();renderTabs();render();setTimeout(fit,700);$('#dlg').classList.remove('open');toast('Importado');
+  try{
+    const o=JSON.parse($('#dText').value); 
+    S=o; S.cfg=S.cfg||{rep:240,dist:90}; fixPins();sel=null;closePanel();commit();syncCfg();renderTabs();render();setTimeout(fit,700);$('#dlg').classList.remove('open');toast('Importado');
   }catch(e){toast('JSON inválido');}
 };
 
-/* ---------- teclado ---------- */
-addEventListener('keydown',e=>{
-  const typing=/INPUT|TEXTAREA/.test(e.target.tagName)||e.target.isContentEditable;
-  const mod=e.ctrlKey||e.metaKey;
-  if(mod&&e.key.toLowerCase()==='k'){e.preventDefault();$('#q').focus();return;}
-  if(typing){if(e.key==='Escape')e.target.blur();return;}
-  if(mod&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();}
-  else if(mod&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}
-  else if(e.key==='Tab'){e.preventDefault();addChild();}
-  else if(e.key==='Delete'||e.key==='Backspace'){selLink?delLink():delNode();}
-  else if(e.key==='Enter'&&sel){$('#fTitle').focus();}
-  else if(e.key==='Escape'){sel=null;selLink=null;connectFrom=null;closePanel();style();}
-  else if(e.key.toLowerCase()==='f'){fit();}
-  else if(e.key==='/'){e.preventDefault();$('#q').focus();}
-});
-addEventListener('resize',()=>{resize();sim.alpha(.2).restart();});
-
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
 
-/* ---------- Início e Login Local ---------- */
+/* ---------- Início e Conexão Realtime ---------- */
 $('#userNameInp').addEventListener('keydown', e => { if(e.key === 'Enter') $('#btnEnter').click(); });
 
-$('#btnEnter').onclick = () => {
+$('#btnEnter').onclick = async () => {
     const name = $('#userNameInp').value.trim();
     if (!name) return toast('Por favor, digite seu nome!');
     
     myName = name;
+    $('#userTag').textContent = myName;
+    $('#userTag').style.display = 'inline-block';
     
-    // Libera a tela IMEDIATAMENTE e mostra o nome
+    // Libera a tela imediatamente para o usuário (Resolve a tela travada)
     $('#loginDlg').style.display = 'none';
-    $('#userTag').style.display = 'block';
-    $('#userTag').textContent = '👤 ' + myName;
-    
-    // Carrega o mapa salvo localmente no celular/computador
-    S = load();
-    S.cfg = S.cfg || {rep:240, dist:90};
-    fixPins();
-    hist=[JSON.stringify(ser())];hi=0;
-    
-    resize();
-    syncCfg();
-    renderTabs();
-    render();
-    setTimeout(fit,900);
     toast('Bem-vindo(a), ' + myName + '!');
+
+    if (supa) {
+      try {
+        const { data, error } = await supa.from('mindmaps').select('state').eq('id', 'mapa-principal').single();
+        if (data && data.state && data.state.maps) {
+          S = data.state;
+        } else {
+          S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
+          await supa.from('mindmaps').insert({ id: 'mapa-principal', state: S });
+        }
+      } catch(err) {
+        console.error(err);
+        S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
+      }
+    } else {
+      S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
+    }
+
+    S.cfg=S.cfg||{rep:240,dist:90}; fixPins();
+    hist=[JSON.stringify(ser())]; hi=0;
+    
+    resize(); syncCfg(); renderTabs(); render(); setTimeout(fit, 800);
+    
+    // Inscreve para ouvir os colegas de equipe em tempo real
+    if (supa) {
+      supa.channel('mindmaps-channel')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mindmaps', filter: 'id=eq.mapa-principal' }, (payload) => {
+            isRemoteUpdate = true;
+            S = payload.new.state;
+            S.cfg=S.cfg||{rep:240,dist:90}; fixPins();
+            if(!moved) { renderTabs(); render(); syncCfg(); }
+            isRemoteUpdate = false;
+        })
+        .subscribe();
+    }
 };
+
+addEventListener('resize',()=>{resize();sim.alpha(.2).restart();});
 </script>
 </body>
 </html>
