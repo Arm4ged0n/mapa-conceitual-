@@ -74,6 +74,7 @@ textarea.f{min-height:110px;resize:vertical}
 #loginDlg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px;backdrop-filter:blur(5px)}
 #loginDlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:24px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:15px;text-align:center;box-shadow: 0 10px 40px rgba(0,0,0,0.5);}
 #userTag{background:var(--ac);color:#11111b;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;display:none;white-space:nowrap;}
+#cloudStatus{font-size:12px;color:var(--mut);margin-right:8px;font-weight:bold;}
 
 @media(max-width:640px){
   #panel{top:auto;right:0;left:0;bottom:0;width:auto;border-radius:14px 14px 0 0;max-height:55%}
@@ -94,6 +95,7 @@ textarea.f{min-height:110px;resize:vertical}
     <button class="btn" id="bRedo" title="Refazer (Ctrl+Shift+Z)">↷</button>
     <button class="btn" id="bCfg" title="Física do grafo">⚙</button>
     <button class="btn" id="bData" title="Exportar / importar">⇅ Dados</button>
+    <span id="cloudStatus"></span>
     <span id="userTag" title="Usuário logado"></span>
   </header>
   
@@ -141,16 +143,19 @@ textarea.f{min-height:110px;resize:vertical}
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE 
 // ==========================================
-const SUPABASE_URL = 'supabase link --project-ref qxuewninnzfavdibnrmd';
-const SUPABASE_KEY = 'sb_publishable_EIRG9yUW-t8qhe2jufAsiA_90wKMR71';
+// A URL já está preenchida corretamente! 
+const SUPABASE_URL = 'https://qxuewninnzfavdibnrmd.supabase.co';
 
-// Conexão protegida (se a url estiver errada, o código não morre)
+// Cole abaixo APENAS a sua chave que começa com eyJ... (Project API Keys > anon / public)
+const SUPABASE_KEY = 'COLOQUE_SUA_CHAVE_GIGANTE_A';
+
+// Conexão protegida (se a url ou chave estiverem erradas, não trava o app)
 let supa = null;
 try {
-  if (SUPABASE_URL.includes('http')) {
-    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  if (SUPABASE_URL.includes('http') && SUPABASE_KEY.includes('eyJ')) {
+    supa = window.supabase.createClient(SUPABASE_URL.trim(), SUPABASE_KEY.trim());
   }
-} catch(e) { console.warn("Supabase não conectado."); }
+} catch(e) { console.warn("Supabase não configurado ou erro nas chaves."); }
 // ==========================================
 
 const $=s=>document.querySelector(s);
@@ -161,12 +166,12 @@ const uid=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 let S,hist=[],hi=-1,sel=null,selLink=null,hover=null,q='',deg={},W=800,H=600,moved=false,nodeSel,linkSel,saveT;
 let myName = '';
 let isRemoteUpdate = false;
+let d3IsReady = false; 
 
-/* ---------- dados iniciais ---------- */
 function seed(){
-  const it=[['Inteligência Artificial','O campo principal.',1,-1],['Machine Learning','Aprendizado a partir de dados.',0,0],['Redes Neurais','Inspiradas no cérebro biológico.',0,1],['Deep Learning','Redes neurais profundas.',0,2],['Visão Computacional','Imagens e vídeos.',5,0],['Linguagem Natural','Compreensão de texto (NLP).',3,0],['LLMs','Modelos de linguagem grandes.',3,5],['Robótica','Agentes físicos autônomos.',4,0],['Ética na IA','Viés, segurança e implicações morais.',2,0]];
-  return {id:'m1',name:'Inteligência Artificial',
-    nodes:it.map((x,i)=>({id:'n'+i,title:x[0],desc:x[1],color:COLORS[x[2]],tags:[],pin:false})),
+  const it=[['Bem-vindo ao Mapa','Sua primeira ideia.',1,-1]];
+  return {id:'m1',name:'Ideias',
+    nodes:it.map((x,i)=>({id:'n'+i,title:x[0],desc:x[1],color:MAIN_COLORS[0],tags:[],pin:false})),
     links:it.filter(x=>x[3]>=0).map((x,i)=>({s:'n'+x[3],t:'n'+(it.indexOf(x))}))};
 }
 
@@ -179,11 +184,29 @@ function ser(){
 async function saveToSupabase() {
   if (isRemoteUpdate || !supa || !S) return;
   const data = ser();
-  try { await supa.from('mindmaps').update({ state: data }).eq('id', 'mapa-principal'); } 
-  catch(e) { console.error("Erro ao salvar:", e); }
+  $('#cloudStatus').textContent = 'Salvando...';
+  $('#cloudStatus').style.color = 'var(--tx)';
+  
+  try { 
+    const { error } = await supa.from('mindmaps').upsert({ id: 'mapa-principal', state: data }); 
+    if(error) {
+        console.error("Erro banco:", error);
+        $('#cloudStatus').textContent = 'Erro ❌';
+        $('#cloudStatus').style.color = '#f38ba8';
+    } else {
+        $('#cloudStatus').textContent = 'Salvo ☁️';
+        $('#cloudStatus').style.color = '#a6e3a1';
+        setTimeout(() => { if($('#cloudStatus').textContent === 'Salvo ☁️') $('#cloudStatus').textContent = ''; }, 3000);
+    }
+  } 
+  catch(e) { 
+      console.error("Erro de rede:", e); 
+      $('#cloudStatus').textContent = 'Offline ❌'; 
+      $('#cloudStatus').style.color = '#f38ba8';
+  }
 }
 
-function saveSoon(){clearTimeout(saveT);saveT=setTimeout(saveToSupabase,400);}
+function saveSoon(){clearTimeout(saveT);saveT=setTimeout(saveToSupabase,500);}
 function commit(){saveSoon();hist=hist.slice(0,hi+1);hist.push(JSON.stringify(ser()));if(hist.length>60)hist.shift();hi=hist.length-1;}
 
 function apply(str){S=JSON.parse(str);S.cfg=S.cfg||{rep:240,dist:90};fixPins();sel=null;selLink=null;closePanel();renderTabs();render();saveSoon();}
@@ -211,11 +234,12 @@ const label=d=>{const t=d.title||'Sem título';return t.length>24?t.slice(0,22)+
 function forces(){sim.force('charge').strength(-S.cfg.rep);sim.force('link').distance(S.cfg.dist);}
 function resize(){const r=$('#stage').getBoundingClientRect();W=r.width;H=r.height;sim.force('x').x(W/2);sim.force('y').y(H/2);}
 const drag=d3.drag()
-  .on('start',(e,d)=>{moved=false;if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;})
+  .on('start',(e,d)=>{moved=true;if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;})
   .on('drag',(e,d)=>{moved=true;d.fx=e.x;d.fy=e.y;})
-  .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);pinApply(d);if(moved)commit();});
+  .on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);pinApply(d);if(moved)commit(); setTimeout(()=>moved=false,200);});
 
 function render(){
+  if(!d3IsReady) return;
   const m=cur();deg={};
   m.links.forEach(l=>{deg[l.s]=(deg[l.s]||0)+1;deg[l.t]=(deg[l.t]||0)+1;});
   const L=m.links.map(l=>({source:l.s,target:l.t,s:l.s,t:l.t}));
@@ -236,7 +260,7 @@ function render(){
 }
 
 function tick(){
-  if (!linkSel || !nodeSel) return; // FIX: Protege contra tick antes de renderizar
+  if (!d3IsReady || !linkSel || !nodeSel) return; 
   linkSel.selectAll('line').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
   nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
 }
@@ -247,20 +271,15 @@ function style(){
   const hit=n=>(n.title+' '+n.desc+' '+(n.tags||[]).join(' ')).toLowerCase().includes(ql);
   nodeSel.classed('sel',d=>d.id===sel).classed('pin',d=>d.pin).classed('match',d=>!!ql&&hit(d)).classed('dim',d=>ql?!hit(d):false);
   linkSel.classed('on',d=>!!(sel&&(d.s===sel||d.t===sel))).classed('sl',d=>d.s+'>'+d.t===selLink);
-  
   if(sel) $('#bEditTop').style.display = 'block';
   else $('#bEditTop').style.display = 'none';
 }
 
-/* ---------- Interações 1-Clique ---------- */
+/* ---------- Interações ---------- */
 function nodeClick(ev,d){
   ev.stopPropagation(); selLink=null;
-  if(sel && sel !== d.id) {
-    toggleLink(sel, d.id);
-    select(d.id); 
-  } else {
-    select(d.id);
-  }
+  if(sel && sel !== d.id) { toggleLink(sel, d.id); select(d.id); } 
+  else { select(d.id); }
 }
 function toggleLink(a,b){
   const m=cur(),i=m.links.findIndex(l=>(l.s===a&&l.t===b)||(l.s===b&&l.t===a));
@@ -271,7 +290,7 @@ function select(id){sel=id;selLink=null;style();}
 function addNode(x,y,parent){
   const m=cur();
   const nodeColor = parent ? parent.color : MAIN_COLORS[Math.floor(Math.random() * MAIN_COLORS.length)];
-  const n={id:uid(),title:'Nova ideia',desc:'',color:nodeColor,tags:[],pin:false,x,y};
+  const n={id:uid(),title:'Ideia de ' + myName,desc:'',color:nodeColor,tags:[],pin:false,x,y};
   m.nodes.push(n);if(parent)m.links.push({s:parent.id,t:n.id});
   commit();render();select(n.id);
 }
@@ -286,6 +305,7 @@ $('#bAddFloating').onclick = () => addNode(W/2, H/2, null);
 $('#bEditTop').onclick = openPanel;
 
 function fit(){
+  if(!d3IsReady)return;
   const ns=cur().nodes.filter(n=>n.x!=null);if(!ns.length)return;
   const x0=d3.min(ns,n=>n.x),x1=d3.max(ns,n=>n.x),y0=d3.min(ns,n=>n.y),y1=d3.max(ns,n=>n.y);
   const k=Math.min(2,.85/Math.max((x1-x0)/W,(y1-y0)/H,.05));
@@ -303,23 +323,22 @@ function openPanel(){
   $('#panel').classList.add('open');
 }
 function closePanel(){$('#panel').classList.remove('open');}
-$('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();saveSoon();};
-$('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;saveSoon();}};
-$('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);saveSoon();}};
+$('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();commit();};
+$('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;commit();}};
+$('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);commit();}};
 $('#fPin').onchange=e=>{const n=nodeById(sel);if(n){n.pin=e.target.checked;pinApply(n);commit();style();}};
 $('#pClose').onclick=closePanel;
 $('#pDel').onclick=delNode;
 $('#pChild').onclick=()=>{const p=sel&&nodeById(sel);if(p)addNode(p.x+(Math.random()*60-30),p.y+60,p);};
 
-/* ---------- Abas ---------- */
+/* ---------- Abas & Utilitários ---------- */
 function renderTabs(){
   const t=$('#tabs');t.innerHTML='';
   S.maps.forEach(m=>{
     const d=document.createElement('div');d.className='tab'+(m.id===S.active?' on':'');
     const s=document.createElement('span');s.textContent=m.name;
     d.onclick=()=>{if(S.active!==m.id){S.active=m.id;sel=null;selLink=null;closePanel();renderTabs();render();saveSoon();setTimeout(fit,700);}};
-    const x=document.createElement('b');x.textContent='×';
-    x.onclick=e=>{e.stopPropagation();delMap(m.id);};
+    const x=document.createElement('b');x.textContent='×'; x.onclick=e=>{e.stopPropagation();delMap(m.id);};
     d.append(s,x);t.appendChild(d);
   });
 }
@@ -336,7 +355,6 @@ function delMap(id){
 }
 $('#addMap').onclick=newMap;
 
-/* ---------- Ferramentas e Exportação ---------- */
 $('#bFit').onclick=fit;$('#bUndo').onclick=undo;$('#bRedo').onclick=redo;
 $('#bCfg').onclick=()=>$('#cfg').classList.toggle('open');
 function syncCfg(){$('#rRep').value=S.cfg.rep;$('#rDist').value=S.cfg.dist;$('#vRep').textContent=S.cfg.rep;$('#vDist').textContent=S.cfg.dist;}
@@ -359,7 +377,7 @@ $('#dImp').onclick=()=>{
 
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),2200);}
 
-/* ---------- Início e Conexão Realtime ---------- */
+/* ---------- Fluxo de Inicialização e Login ---------- */
 $('#userNameInp').addEventListener('keydown', e => { if(e.key === 'Enter') $('#btnEnter').click(); });
 
 $('#btnEnter').onclick = async () => {
@@ -370,25 +388,27 @@ $('#btnEnter').onclick = async () => {
     $('#userTag').textContent = myName;
     $('#userTag').style.display = 'inline-block';
     
-    // Libera a tela imediatamente para o usuário (Resolve a tela travada)
     $('#loginDlg').style.display = 'none';
-    toast('Bem-vindo(a), ' + myName + '!');
+    d3IsReady = true; 
 
     if (supa) {
       try {
         const { data, error } = await supa.from('mindmaps').select('state').eq('id', 'mapa-principal').single();
-        if (data && data.state && data.state.maps) {
+        
+        if (data && data.state && data.state.maps && data.state.maps.length > 0) {
           S = data.state;
+          toast('Conectado à nuvem, ' + myName + '!');
         } else {
           S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
-          await supa.from('mindmaps').insert({ id: 'mapa-principal', state: S });
+          await supa.from('mindmaps').upsert({ id: 'mapa-principal', state: S });
         }
       } catch(err) {
-        console.error(err);
+        console.error("Erro banco:", err);
         S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
       }
     } else {
       S = {active:'m1',cfg:{rep:240,dist:90},maps:[seed()]};
+      toast('Modo Offline Ativado (verifique suas chaves).');
     }
 
     S.cfg=S.cfg||{rep:240,dist:90}; fixPins();
@@ -396,21 +416,26 @@ $('#btnEnter').onclick = async () => {
     
     resize(); syncCfg(); renderTabs(); render(); setTimeout(fit, 800);
     
-    // Inscreve para ouvir os colegas de equipe em tempo real
     if (supa) {
       supa.channel('mindmaps-channel')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'mindmaps', filter: 'id=eq.mapa-principal' }, (payload) => {
+            if(moved) return; 
             isRemoteUpdate = true;
             S = payload.new.state;
             S.cfg=S.cfg||{rep:240,dist:90}; fixPins();
-            if(!moved) { renderTabs(); render(); syncCfg(); }
+            
+            const prevSel = sel;
+            renderTabs(); render(); syncCfg();
+            if(prevSel) { sel = prevSel; style(); }
+
             isRemoteUpdate = false;
+            toast('✨ Atualizado por outro usuário!');
         })
         .subscribe();
     }
 };
 
-addEventListener('resize',()=>{resize();sim.alpha(.2).restart();});
+addEventListener('resize',()=>{if(d3IsReady){resize();sim.alpha(.2).restart();}});
 </script>
 </body>
 </html>
