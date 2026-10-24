@@ -98,7 +98,7 @@ textarea.f{min-height:110px;resize:vertical}
     <button class="btn" id="bData" title="Exportar / importar">⇅ Dados</button>
     <span id="cloudStatus"></span>
     <span id="userTag" title="Usuário logado"></span>
-    <button id="bLogout" title="Sair da sessão">Sair</button>
+    <button id="bLogout" title="Sair / Trocar Usuário">Sair</button>
   </header>
   
   <div id="stage">
@@ -259,12 +259,15 @@ function render(){
   nodeSel.select('rect').style('color',d=>d.color);
   nodeSel.select('text').text(label);sizeRects();
   sim.nodes(m.nodes);sim.force('link').links(L);forces();
-  sim.alpha(.8).restart();style();
+  sim.alpha(.5).restart();style();
 }
 
 function tick(){
   if (!d3IsReady || !linkSel || !nodeSel) return; 
-  linkSel.selectAll('line').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  // CORREÇÃO DAS LINHAS SOLTAS: 
+  // Usar .select('.vis') em vez de .selectAll('line') força o D3 a atualizar os dados das linhas sempre que o banco de dados mudar!
+  linkSel.select('.vis').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  linkSel.select('.hit').attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
   nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
 }
 
