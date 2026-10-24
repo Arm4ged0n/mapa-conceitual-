@@ -74,6 +74,7 @@ textarea.f{min-height:110px;resize:vertical}
 #loginDlg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px;backdrop-filter:blur(5px)}
 #loginDlg>div{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:24px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:15px;text-align:center;box-shadow: 0 10px 40px rgba(0,0,0,0.5);}
 #userTag{background:var(--ac);color:#11111b;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:bold;display:none;white-space:nowrap;}
+#bLogout{display:none; background:#f38ba8; color:#11111b; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; border:none; cursor:pointer;}
 #cloudStatus{font-size:12px;color:var(--mut);margin-right:8px;font-weight:bold;}
 
 @media(max-width:640px){
@@ -97,6 +98,7 @@ textarea.f{min-height:110px;resize:vertical}
     <button class="btn" id="bData" title="Exportar / importar">⇅ Dados</button>
     <span id="cloudStatus"></span>
     <span id="userTag" title="Usuário logado"></span>
+    <button id="bLogout" title="Sair da sessão">Sair</button>
   </header>
   
   <div id="stage">
@@ -143,13 +145,13 @@ textarea.f{min-height:110px;resize:vertical}
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE 
 // ==========================================
-// Coloque sua URL aqui:
+// A URL já está preenchida corretamente!
 const SUPABASE_URL = 'https://qxuewninnzfavdibnrmd.supabase.co';
 
-// Coloque a sua chave NOVA (que começa com sb_) aqui:
+// Cole abaixo APENAS a sua chave que começa com sb_publishable...
 const SUPABASE_KEY = 'sb_publishable_EIRG9yUW-t8qhe2jufAsiA_90wKMR71';
 
-// Conexão protegida (Agora aceita as chaves novas com sb_)
+// Conexão protegida (se a url ou chave estiverem erradas, ele funciona offline)
 let supa = null;
 try {
   if (SUPABASE_URL.includes('http') && (SUPABASE_KEY.includes('eyJ') || SUPABASE_KEY.includes('sb_'))) {
@@ -188,6 +190,7 @@ async function saveToSupabase() {
   $('#cloudStatus').style.color = 'var(--tx)';
   
   try { 
+    // Upsert força o banco a aceitar a atualização
     const { error } = await supa.from('mindmaps').upsert({ id: 'mapa-principal', state: data }); 
     if(error) {
         console.error("Erro banco:", error);
@@ -380,6 +383,9 @@ let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('sh
 /* ---------- Fluxo de Inicialização e Login ---------- */
 $('#userNameInp').addEventListener('keydown', e => { if(e.key === 'Enter') $('#btnEnter').click(); });
 
+// Evento de deslogar
+$('#bLogout').onclick = () => { location.reload(); };
+
 $('#btnEnter').onclick = async () => {
     const name = $('#userNameInp').value.trim();
     if (!name) return toast('Por favor, digite seu nome!');
@@ -387,6 +393,7 @@ $('#btnEnter').onclick = async () => {
     myName = name;
     $('#userTag').textContent = myName;
     $('#userTag').style.display = 'inline-block';
+    $('#bLogout').style.display = 'inline-block'; // Mostra o botão de Sair
     
     $('#loginDlg').style.display = 'none';
     d3IsReady = true; 
