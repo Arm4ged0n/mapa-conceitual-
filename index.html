@@ -143,16 +143,16 @@ textarea.f{min-height:110px;resize:vertical}
 // ==========================================
 // CONFIGURAÇÕES DO SUPABASE 
 // ==========================================
-// A URL já está preenchida corretamente! 
+// Coloque sua URL aqui:
 const SUPABASE_URL = 'https://qxuewninnzfavdibnrmd.supabase.co';
 
-// Cole abaixo APENAS a sua chave que começa com eyJ... (Project API Keys > anon / public)
+// Coloque a sua chave NOVA (que começa com sb_) aqui:
 const SUPABASE_KEY = 'sb_publishable_EIRG9yUW-t8qhe2jufAsiA_90wKMR71';
 
-// Conexão protegida (se a url ou chave estiverem erradas, não trava o app)
+// Conexão protegida (Agora aceita as chaves novas com sb_)
 let supa = null;
 try {
-  if (SUPABASE_URL.includes('http') && SUPABASE_KEY.includes('eyJ')) {
+  if (SUPABASE_URL.includes('http') && (SUPABASE_KEY.includes('eyJ') || SUPABASE_KEY.includes('sb_'))) {
     supa = window.supabase.createClient(SUPABASE_URL.trim(), SUPABASE_KEY.trim());
   }
 } catch(e) { console.warn("Supabase não configurado ou erro nas chaves."); }
@@ -323,9 +323,9 @@ function openPanel(){
   $('#panel').classList.add('open');
 }
 function closePanel(){$('#panel').classList.remove('open');}
-$('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();commit();};
-$('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;commit();}};
-$('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);commit();}};
+$('#fTitle').oninput=e=>{const n=nodeById(sel);if(!n)return;n.title=e.target.value;nodeSel.select('text').text(label);sizeRects();saveSoon();};
+$('#fDesc').oninput=e=>{const n=nodeById(sel);if(n){n.desc=e.target.value;saveSoon();}};
+$('#fTags').oninput=e=>{const n=nodeById(sel);if(n){n.tags=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);saveSoon();}};
 $('#fPin').onchange=e=>{const n=nodeById(sel);if(n){n.pin=e.target.checked;pinApply(n);commit();style();}};
 $('#pClose').onclick=closePanel;
 $('#pDel').onclick=delNode;
